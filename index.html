@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ff8648" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="시간계산기" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>시간계산기</title>
+  <style>
+    :root {
+      --accent: #ff8648;
+      --accent-strong: #f56f24;
+      --bg: #f6f3ef;
+      --card: #fffaf5;
+      --card-2: #ffffff;
+      --text: #201d1a;
+      --muted: #7a6b5f;
+      --border: #eaded3;
+      --danger: #d84a35;
+      --ok: #4f8a5b;
+      --off: #9b928b;
+      --shadow: 0 10px 24px rgba(36, 24, 12, 0.08);
+      --radius: 18px;
+      --keypad-width: 450px;
+      --tabbar-height: 68px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior: none;
+      user-select: none;
+    }
+    button {
+      font: inherit;
+      color: inherit;
+      border: 0;
+      border-radius: 14px;
+      background: #fff;
+      min-height: 44px;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 1px var(--border);
+      touch-action: manipulation;
+    }
+    button:active { transform: translateY(1px); filter: brightness(0.98); }
+
+    .app {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: env(safe-area-inset-top) 14px calc(var(--tabbar-height) + env(safe-area-inset-bottom)) 14px;
+    }
+    .topbar {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 12px 2px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .app-title { font-size: 24px; font-weight: 850; letter-spacing: -0.04em; }
+    .badge {
+      font-size: 12px;
+      font-weight: 750;
+      color: var(--accent-strong);
+      background: rgba(255, 134, 72, 0.14);
+      padding: 7px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .panel {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      display: none;
+      flex: 1;
+      min-height: 0;
+    }
+    .panel.active { display: block; }
+
+    .layout {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      min-height: calc(100vh - 110px - var(--tabbar-height));
+    }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(234, 222, 211, 0.8);
+    }
+    .result-card {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+    .result-label { color: var(--muted); font-size: 13px; font-weight: 800; margin-bottom: 3px; }
+    .result-main {
+      font-size: clamp(30px, 5vw, 46px);
+      font-weight: 900;
+      letter-spacing: -0.07em;
+      line-height: 1.05;
+    }
+    .result-sub { margin-top: 5px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .primary-button {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 850;
+      padding: 0 14px;
+      box-shadow: none;
+    }
+    .small-button {
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 11px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+      background: #fff;
+    }
+    .danger-button { color: var(--danger); }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: minmax(170px, 1fr) auto;
+      gap: 10px;
+      min-height: 0;
+    }
+    .list-card, .form-card {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 12px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-head h2 { margin: 0; font-size: 16px; letter-spacing: -0.03em; }
+
+    .entry-list, .record-list {
+      overflow: auto;
+      padding: 8px 10px 12px;
+      display: grid;
+      gap: 7px;
+      align-content: start;
+    }
+    .entry-row {
+      display: grid;
+      grid-template-columns: 64px 42px 1fr 38px;
+      gap: 7px;
+      align-items: center;
+      min-height: 58px;
+      padding: 7px;
+      border-radius: 15px;
+      background: var(--card-2);
+      border: 1px solid var(--border);
+    }
+    .entry-row.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(255, 134, 72, 0.16);
+      background: #fff7ef;
+    }
+    .entry-row.inactive { opacity: 0.62; }
+    .active-toggle {
+      height: 38px;
+      min-height: 38px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      color: #fff;
+      background: var(--accent);
+      box-shadow: none;
+    }
+    .active-toggle.off { background: var(--off); }
+    .sign-button {
+      height: 38px;
+      min-height: 38px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      font-size: 21px;
+      font-weight: 900;
+      color: #fff;
+      background: var(--accent);
+      box-shadow: none;
+    }
+    .sign-button.minus { background: var(--danger); }
+    .entry-main { min-width: 0; display: grid; gap: 3px; }
+    .time-parts { display: flex; gap: 6px; align-items: center; min-width: 0; flex-wrap: wrap; }
+    .time-part, .field-pill {
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.045em;
+      white-space: nowrap;
+    }
+    .time-part.selected-part, .field-pill.selected-part {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: none;
+    }
+    .entry-note { color: var(--muted); font-size: 12px; font-weight: 750; padding-left: 2px; }
+    .delete-button {
+      width: 36px;
+      min-width: 36px;
+      min-height: 36px;
+      height: 36px;
+      border-radius: 12px;
+      color: var(--danger);
+      font-size: 20px;
+      font-weight: 900;
+      background: #fff;
+    }
+
+    .form-body { padding: 12px; display: grid; gap: 10px; overflow: auto; }
+    .field-group {
+      display: grid;
+      gap: 7px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      background: var(--card-2);
+      border-radius: 16px;
+    }
+    .field-title { color: var(--muted); font-size: 13px; font-weight: 850; }
+    .field-row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .toggle-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .toggle-row button.active { background: var(--accent); color: #fff; box-shadow: none; }
+
+    .keypad-card {
+      width: min(var(--keypad-width), calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .selected-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 8px 10px;
+    }
+    .selected-title { color: var(--muted); font-size: 12px; font-weight: 850; }
+    .selected-value { font-size: 18px; font-weight: 900; letter-spacing: -0.04em; }
+    .field-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .field-switch.cols-4 { grid-template-columns: repeat(4, 1fr); }
+    .field-switch button { min-height: 38px; font-size: 13px; font-weight: 900; background: #fff; }
+    .field-switch button.active { background: var(--accent); color: #fff; box-shadow: none; }
+    .keypad-body { display: grid; grid-template-columns: 1fr 94px; gap: 8px; align-items: stretch; }
+    .left-pad { display: grid; gap: 7px; }
+    .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .num-grid button { min-height: 50px; font-size: 22px; font-weight: 900; background: #fff; }
+    .adjust-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .adjust-grid button { min-height: 39px; font-size: 12px; font-weight: 850; background: #fff; }
+    .rail { display: grid; grid-template-rows: repeat(8, 1fr); gap: 6px; }
+    .rail button { min-height: 36px; border-radius: 12px; font-size: 13px; font-weight: 900; background: #fff; }
+    .rail .primary { background: var(--accent); color: #fff; box-shadow: none; }
+
+    .record-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+    .record-item {
+      display: grid;
+      grid-template-columns: 72px 1fr 38px;
+      gap: 8px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      background: #fff;
+    }
+    .record-select {
+      min-height: 36px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--muted);
+    }
+    .record-select.active { background: var(--accent); color: #fff; box-shadow: none; }
+    .record-main strong { display: block; margin-bottom: 4px; }
+    .record-main span { color: var(--muted); font-size: 13px; font-weight: 700; line-height: 1.35; }
+
+    .tabbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+      padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+      background: rgba(255, 250, 245, 0.92);
+      backdrop-filter: blur(18px);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      z-index: 20;
+    }
+    .tabbar button {
+      min-height: 48px;
+      border-radius: 15px;
+      font-size: 14px;
+      font-weight: 900;
+      background: #fff;
+      color: var(--muted);
+    }
+    .tabbar button.active { background: var(--accent); color: #fff; box-shadow: none; }
+
+    @media (max-width: 430px) {
+      .entry-row { grid-template-columns: 56px 38px 1fr 34px; gap: 5px; }
+      .time-part, .field-pill { font-size: 16px; padding: 0 7px; }
+      .keypad-body { grid-template-columns: 1fr 86px; }
+      .rail button { font-size: 12px; }
+      .field-switch.cols-4 { grid-template-columns: repeat(2, 1fr); }
+      .record-item { grid-template-columns: 60px 1fr 34px; }
+    }
+    @media (min-width: 900px) and (orientation: landscape) {
+      .layout { min-height: calc(100vh - 105px - var(--tabbar-height)); }
+      .workspace { grid-template-columns: minmax(0, 1fr) var(--keypad-width); grid-template-rows: minmax(0, 1fr); align-items: end; }
+      .list-card, .form-card { height: 100%; }
+      .keypad-card { width: var(--keypad-width); }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16120f;
+        --card: #211b16;
+        --card-2: #2a231d;
+        --text: #fff7ef;
+        --muted: #b7a99e;
+        --border: #3d3027;
+        --shadow: 0 10px 24px rgba(0,0,0,0.28);
+      }
+      .tabbar { background: rgba(33, 27, 22, 0.92); }
+      .record-item, .time-part, .field-pill, button { background: #2a231d; }
+      .selected-line { background: rgba(42, 35, 29, 0.72); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="app-title">시간계산기</div>
+      <div class="badge">오프라인 · 고정 키패드</div>
+    </header>
+
+    <main id="panel-sum" class="panel active">
+      <div class="layout">
+        <section class="result-card card">
+          <div>
+            <div class="result-label">총합</div>
+            <div id="sumTotalText" class="result-main">0분</div>
+            <div id="sumTotalSub" class="result-sub">0분 · 0.00시간</div>
+          </div>
+          <button id="saveSumRecordBtn" class="primary-button">결과 저장</button>
+        </section>
+        <div class="workspace">
+          <section class="list-card card">
+            <div class="card-head">
+              <h2>시간 목록</h2>
+              <button id="clearEntriesBtn" class="small-button">전체 초기화</button>
+            </div>
+            <div id="entryList" class="entry-list"></div>
+          </section>
+          <section class="keypad-card card" aria-label="합산 입력패드">
+            <div class="selected-line">
+              <div>
+                <div class="selected-title">선택한 목록</div>
+                <div id="sumSelectedValue" class="selected-value">+ 0분</div>
+              </div>
+              <div id="sumSelectedIndexLabel" class="selected-title">1 / 1</div>
+            </div>
+            <div class="field-switch" aria-label="편집 칸 선택">
+              <button id="sumEditHoursBtn" data-sum-field="hours">시간 편집</button>
+              <button id="sumEditMinutesBtn" data-sum-field="minutes" class="active">분 편집</button>
+            </div>
+            <div class="keypad-body">
+              <div class="left-pad">
+                <div class="num-grid" aria-label="숫자패드">
+                  <button data-sum-digit="7">7</button><button data-sum-digit="8">8</button><button data-sum-digit="9">9</button>
+                  <button data-sum-digit="4">4</button><button data-sum-digit="5">5</button><button data-sum-digit="6">6</button>
+                  <button data-sum-digit="1">1</button><button data-sum-digit="2">2</button><button data-sum-digit="3">3</button>
+                  <button id="sumBackspaceBtn">←</button><button data-sum-digit="0">0</button><button data-sum-digit="00">00</button>
+                </div>
+                <div class="adjust-grid">
+                  <button data-sum-adjust-field="hours" data-sum-adjust="-1">시 -1</button>
+                  <button data-sum-adjust-field="hours" data-sum-adjust="1">시 +1</button>
+                  <button data-sum-zero="hours">시 0</button>
+                  <button data-sum-adjust-field="minutes" data-sum-adjust="-1">분 -1</button>
+                  <button data-sum-adjust-field="minutes" data-sum-adjust="1">분 +1</button>
+                  <button data-sum-zero="minutes">분 0</button>
+                  <button data-sum-adjust-field="minutes" data-sum-adjust="-5">분 -5</button>
+                  <button data-sum-adjust-field="minutes" data-sum-adjust="5">분 +5</button>
+                  <button data-sum-adjust-field="minutes" data-sum-adjust="10">분 +10</button>
+                </div>
+              </div>
+              <div class="rail">
+                <button id="sumPrevBtn">이전</button>
+                <button id="sumNextBtn">다음</button>
+                <button id="sumAddBtn" class="primary">목록추가</button>
+                <button id="sumCopyBtn">복사</button>
+                <button id="sumToggleSignBtn">+ / -</button>
+                <button id="sumToggleActiveBtn">활성토글</button>
+                <button id="sumMoveUpBtn">위로</button>
+                <button id="sumMoveDownBtn">아래로</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <main id="panel-diff" class="panel">
+      <div class="layout">
+        <section class="result-card card">
+          <div>
+            <div class="result-label">시간 차이</div>
+            <div id="diffResultText" class="result-main">0분</div>
+            <div id="diffResultSub" class="result-sub">시작 시각과 종료 시각의 차이를 계산합니다.</div>
+          </div>
+          <button id="saveDiffRecordBtn" class="primary-button">결과 저장</button>
+        </section>
+        <div class="workspace">
+          <section class="form-card card">
+            <div class="card-head"><h2>시각 입력</h2><button id="diffNowBtn" class="small-button">현재 시각</button></div>
+            <div class="form-body">
+              <div class="field-group">
+                <div class="field-title">시작 시각</div>
+                <div class="field-row">
+                  <button class="field-pill" data-diff-field="startH" id="diffStartH">0시</button>
+                  <button class="field-pill" data-diff-field="startM" id="diffStartM">00분</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="field-title">종료 시각</div>
+                <div class="field-row">
+                  <button class="field-pill" data-diff-field="endH" id="diffEndH">0시</button>
+                  <button class="field-pill" data-diff-field="endM" id="diffEndM">00분</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="field-title">계산 옵션</div>
+                <div class="toggle-row">
+                  <button id="diffAutoNextBtn" class="active">다음날 자동</button>
+                  <button id="diffSwapBtn">시작/종료 교체</button>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="keypad-card card" aria-label="차이 입력패드">
+            <div class="selected-line">
+              <div>
+                <div class="selected-title">선택한 칸</div>
+                <div id="diffSelectedValue" class="selected-value">시작 시</div>
+              </div>
+              <div class="selected-title">시각 계산</div>
+            </div>
+            <div class="field-switch cols-4">
+              <button data-diff-field="startH">시작 시</button>
+              <button data-diff-field="startM">시작 분</button>
+              <button data-diff-field="endH">종료 시</button>
+              <button data-diff-field="endM">종료 분</button>
+            </div>
+            <div class="keypad-body">
+              <div class="left-pad">
+                <div class="num-grid">
+                  <button data-diff-digit="7">7</button><button data-diff-digit="8">8</button><button data-diff-digit="9">9</button>
+                  <button data-diff-digit="4">4</button><button data-diff-digit="5">5</button><button data-diff-digit="6">6</button>
+                  <button data-diff-digit="1">1</button><button data-diff-digit="2">2</button><button data-diff-digit="3">3</button>
+                  <button id="diffBackspaceBtn">←</button><button data-diff-digit="0">0</button><button data-diff-digit="00">00</button>
+                </div>
+                <div class="adjust-grid">
+                  <button data-diff-adjust="-1">-1</button><button data-diff-adjust="1">+1</button><button id="diffZeroBtn">0</button>
+                  <button data-diff-quick="start">시작=현재</button><button data-diff-quick="end">종료=현재</button><button id="diffToggleNextBtn">다음날</button>
+                </div>
+              </div>
+              <div class="rail">
+                <button id="diffPrevFieldBtn">이전칸</button>
+                <button id="diffNextFieldBtn">다음칸</button>
+                <button data-diff-field="startH">시작 시</button>
+                <button data-diff-field="startM">시작 분</button>
+                <button data-diff-field="endH">종료 시</button>
+                <button data-diff-field="endM">종료 분</button>
+                <button id="diffClearBtn">초기화</button>
+                <button id="diffSaveBtn" class="primary">저장</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <main id="panel-clock" class="panel">
+      <div class="layout">
+        <section class="result-card card">
+          <div>
+            <div class="result-label">시각 계산</div>
+            <div id="clockResultText" class="result-main">00:00</div>
+            <div id="clockResultSub" class="result-sub">기준 시각에 시간을 더하거나 뺍니다.</div>
+          </div>
+          <button id="saveClockRecordBtn" class="primary-button">결과 저장</button>
+        </section>
+        <div class="workspace">
+          <section class="form-card card">
+            <div class="card-head"><h2>시각 및 시간 입력</h2><button id="clockNowBtn" class="small-button">현재 시각</button></div>
+            <div class="form-body">
+              <div class="field-group">
+                <div class="field-title">기준 시각</div>
+                <div class="field-row">
+                  <button class="field-pill" data-clock-field="baseH" id="clockBaseH">0시</button>
+                  <button class="field-pill" data-clock-field="baseM" id="clockBaseM">00분</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="field-title">계산할 시간</div>
+                <div class="field-row">
+                  <button class="field-pill" data-clock-field="durH" id="clockDurH">0시간</button>
+                  <button class="field-pill" data-clock-field="durM" id="clockDurM">00분</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="field-title">계산 방향</div>
+                <div class="toggle-row">
+                  <button id="clockPlusBtn" class="active">더하기</button>
+                  <button id="clockMinusBtn">빼기</button>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="keypad-card card" aria-label="시각 입력패드">
+            <div class="selected-line">
+              <div>
+                <div class="selected-title">선택한 칸</div>
+                <div id="clockSelectedValue" class="selected-value">기준 시</div>
+              </div>
+              <div class="selected-title">시각 계산</div>
+            </div>
+            <div class="field-switch cols-4">
+              <button data-clock-field="baseH">기준 시</button>
+              <button data-clock-field="baseM">기준 분</button>
+              <button data-clock-field="durH">시간</button>
+              <button data-clock-field="durM">분</button>
+            </div>
+            <div class="keypad-body">
+              <div class="left-pad">
+                <div class="num-grid">
+                  <button data-clock-digit="7">7</button><button data-clock-digit="8">8</button><button data-clock-digit="9">9</button>
+                  <button data-clock-digit="4">4</button><button data-clock-digit="5">5</button><button data-clock-digit="6">6</button>
+                  <button data-clock-digit="1">1</button><button data-clock-digit="2">2</button><button data-clock-digit="3">3</button>
+                  <button id="clockBackspaceBtn">←</button><button data-clock-digit="0">0</button><button data-clock-digit="00">00</button>
+                </div>
+                <div class="adjust-grid">
+                  <button data-clock-adjust="-1">-1</button><button data-clock-adjust="1">+1</button><button id="clockZeroBtn">0</button>
+                  <button id="clockToggleSignBtn">+ / -</button><button data-clock-quick="base">기준=현재</button><button id="clockClearBtn">초기화</button>
+                </div>
+              </div>
+              <div class="rail">
+                <button id="clockPrevFieldBtn">이전칸</button>
+                <button id="clockNextFieldBtn">다음칸</button>
+                <button data-clock-field="baseH">기준 시</button>
+                <button data-clock-field="baseM">기준 분</button>
+                <button data-clock-field="durH">시간</button>
+                <button data-clock-field="durM">분</button>
+                <button id="clockSetMinusBtn">빼기</button>
+                <button id="clockSaveBtn" class="primary">저장</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <main id="panel-records" class="panel">
+      <div class="layout">
+        <section class="result-card card">
+          <div>
+            <div class="result-label">기록</div>
+            <div id="recordCountText" class="result-main">0개</div>
+            <div id="recordSubText" class="result-sub">저장된 계산 기록을 확인하고 필요한 항목만 삭제할 수 있습니다.</div>
+          </div>
+          <button id="deleteSelectedRecordsBtn" class="primary-button">선택 삭제</button>
+        </section>
+        <section class="list-card card">
+          <div class="card-head">
+            <h2>저장 기록</h2>
+            <div class="record-tools">
+              <button id="selectAllRecordsBtn" class="small-button">전체 선택</button>
+              <button id="clearSelectedRecordsBtn" class="small-button">선택 해제</button>
+              <button id="clearRecordsBtn" class="small-button danger-button">전체 삭제</button>
+            </div>
+          </div>
+          <div id="recordList" class="record-list"></div>
+        </section>
+      </div>
+    </main>
+
+    <main id="panel-settings" class="panel">
+      <section class="card" style="margin-top:10px;padding:18px;min-height:300px;">
+        <h2 style="margin:0 0 10px;letter-spacing:-0.04em;">설정</h2>
+        <div class="field-group">
+          <div class="field-title">입력 규칙</div>
+          <div class="entry-note">입력패드는 화면 방향과 관계없이 고정 크기로 표시됩니다.</div>
+          <div class="entry-note">합산의 시간 값은 일 단위로 변환되지 않습니다. 50시간은 50시간으로 표시됩니다.</div>
+          <div class="entry-note">분 값은 최대 59분으로 제한됩니다. 9999를 입력해도 59분으로 고정됩니다.</div>
+        </div>
+        <div style="height:12px"></div>
+        <button id="resetAllBtn" class="small-button danger-button">앱 데이터 전체 초기화</button>
+      </section>
+    </main>
+  </div>
+
+  <nav class="tabbar" aria-label="기능 탭">
+    <button class="active" data-tab="sum">합산</button>
+    <button data-tab="diff">차이</button>
+    <button data-tab="clock">시각</button>
+    <button data-tab="records">기록</button>
+    <button data-tab="settings">설정</button>
+  </nav>
+
+  <script>
+    const KEYS = {
+      entries: 'timecalc.entries.v3',
+      selected: 'timecalc.selected.v3',
+      sumField: 'timecalc.sumField.v3',
+      records: 'timecalc.records.v3',
+      diff: 'timecalc.diff.v3',
+      clock: 'timecalc.clock.v3'
+    };
+    const LEGACY_KEYS = ['timecalc.entries.v2', 'timecalc.entries.v1'];
+
+    let activeTab = 'sum';
+    let entries = loadEntries();
+    let selectedIndex = loadNumber(KEYS.selected, 0);
+    let sumField = localStorage.getItem(KEYS.sumField) === 'hours' ? 'hours' : 'minutes';
+    let sumBuffer = '';
+    let sumBufferField = sumField;
+    let diff = loadJson(KEYS.diff, { startH: 0, startM: 0, endH: 0, endM: 0, field: 'startH', autoNext: true });
+    let diffBuffer = '';
+    let diffBufferField = diff.field;
+    let clock = loadJson(KEYS.clock, { baseH: 0, baseM: 0, durH: 0, durM: 0, sign: 'plus', field: 'baseH' });
+    let clockBuffer = '';
+    let clockBufferField = clock.field;
+    let selectedRecordIds = new Set();
+
+    function uid() { return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
+    function loadJson(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch { return fallback; } }
+    function loadNumber(key, fallback) { const n = Number(localStorage.getItem(key)); return Number.isFinite(n) ? n : fallback; }
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, Number(n) || 0)); }
+    function pad2(n) { return String(clamp(n, 0, 99)).padStart(2, '0'); }
+    function defaultEntries() { return [{ id: uid(), hours: 0, minutes: 0, sign: 'plus', active: true }]; }
+
+    function normalizeEntry(e) {
+      if (typeof e.minutes === 'number' && typeof e.hours !== 'number') {
+        const total = Math.max(0, e.minutes || 0);
+        return { id: e.id || uid(), hours: Math.floor(total / 60), minutes: total % 60, sign: e.mode === 'minus' ? 'minus' : 'plus', active: e.mode !== 'off' };
+      }
+      return { id: e.id || uid(), hours: clamp(e.hours, 0, 9999), minutes: clamp(e.minutes, 0, 59), sign: e.sign === 'minus' ? 'minus' : 'plus', active: typeof e.active === 'boolean' ? e.active : true };
+    }
+    function loadEntries() {
+      const saved = loadJson(KEYS.entries, null);
+      if (Array.isArray(saved) && saved.length) return saved.map(normalizeEntry);
+      for (const key of LEGACY_KEYS) {
+        const legacy = loadJson(key, null);
+        if (Array.isArray(legacy) && legacy.length) return legacy.map(normalizeEntry);
+      }
+      return defaultEntries();
+    }
+    function saveEntries() { localStorage.setItem(KEYS.entries, JSON.stringify(entries)); localStorage.setItem(KEYS.selected, String(selectedIndex)); localStorage.setItem(KEYS.sumField, sumField); }
+    function saveDiff() { localStorage.setItem(KEYS.diff, JSON.stringify(diff)); }
+    function saveClock() { localStorage.setItem(KEYS.clock, JSON.stringify(clock)); }
+    function loadRecords() { return loadJson(KEYS.records, []); }
+    function saveRecords(records) { localStorage.setItem(KEYS.records, JSON.stringify(records.slice(0, 300))); }
+
+    function ensureSelection() { if (!entries.length) entries = defaultEntries(); selectedIndex = clamp(selectedIndex, 0, entries.length - 1); return entries[selectedIndex]; }
+    function formatParts(hours, minutes) { const h = clamp(hours, 0, 9999); const m = clamp(minutes, 0, 59); if (h === 0) return `${m}분`; if (m === 0) return `${h}시간`; return `${h}시간 ${m}분`; }
+    function formatDuration(totalMinutes) { const sign = totalMinutes < 0 ? '-' : ''; const abs = Math.abs(totalMinutes); const h = Math.floor(abs / 60); const m = abs % 60; if (h === 0) return `${sign}${m}분`; if (m === 0) return `${sign}${h}시간`; return `${sign}${h}시간 ${m}분`; }
+    function formatEntry(entry) { const prefix = entry.sign === 'plus' ? '+' : '-'; return `${entry.active ? '' : '비활성 · '}${prefix} ${formatParts(entry.hours, entry.minutes)}`; }
+    function entryMinutes(e) { return e.hours * 60 + e.minutes; }
+    function signedMinutes(e) { if (!e.active) return 0; return e.sign === 'minus' ? -entryMinutes(e) : entryMinutes(e); }
+    function sumTotal() { return entries.reduce((s, e) => s + signedMinutes(e), 0); }
+    function resetSumBuffer() { sumBuffer = ''; sumBufferField = sumField; }
+    function resetDiffBuffer() { diffBuffer = ''; diffBufferField = diff.field; }
+    function resetClockBuffer() { clockBuffer = ''; clockBufferField = clock.field; }
+
+    function applySumField(entry, field, raw) { if (field === 'hours') entry.hours = clamp(raw, 0, 9999); else entry.minutes = clamp(raw, 0, 59); }
+    function selectSumEntry(index, field) { selectedIndex = clamp(index, 0, entries.length - 1); if (field) sumField = field; resetSumBuffer(); saveEntries(); renderSum(); scrollSelectedIntoView(); }
+    function setSumField(field) { sumField = field === 'hours' ? 'hours' : 'minutes'; resetSumBuffer(); saveEntries(); renderSum(); }
+    function pressSumDigit(value) {
+      const entry = ensureSelection();
+      if (sumBufferField !== sumField) resetSumBuffer();
+      sumBufferField = sumField;
+      sumBuffer = value === '00' ? (sumBuffer ? sumBuffer + '00' : '0') : sumBuffer + value;
+      sumBuffer = sumBuffer.replace(/^0+(?=\d)/, '');
+      let next = Number(sumBuffer) || 0;
+      if (sumField === 'minutes' && next > 59) { next = 59; sumBuffer = '59'; }
+      if (sumField === 'hours' && next > 9999) { next = 9999; sumBuffer = '9999'; }
+      applySumField(entry, sumField, next); saveEntries(); renderSum();
+    }
+    function sumBackspace() {
+      const entry = ensureSelection();
+      if (sumBufferField !== sumField || !sumBuffer) { sumBuffer = String(entry[sumField] || ''); sumBufferField = sumField; }
+      sumBuffer = sumBuffer.slice(0, -1);
+      applySumField(entry, sumField, sumBuffer); saveEntries(); renderSum();
+    }
+    function adjustSum(field, delta) { const e = ensureSelection(); applySumField(e, field, (Number(e[field]) || 0) + delta); sumField = field; resetSumBuffer(); saveEntries(); renderSum(); }
+    function zeroSum(field) { const e = ensureSelection(); applySumField(e, field, 0); sumField = field; resetSumBuffer(); saveEntries(); renderSum(); }
+    function moveSumSelection(delta) { selectedIndex = clamp(selectedIndex + delta, 0, entries.length - 1); resetSumBuffer(); saveEntries(); renderSum(); scrollSelectedIntoView(); }
+    function addSumEntry() { ensureSelection(); const i = selectedIndex + 1; entries.splice(i, 0, { id: uid(), hours: 0, minutes: 0, sign: 'plus', active: true }); selectedIndex = i; sumField = 'minutes'; resetSumBuffer(); saveEntries(); renderSum(); scrollSelectedIntoView(); }
+    function copySumEntry() { const e = ensureSelection(); const i = selectedIndex + 1; entries.splice(i, 0, { id: uid(), hours: e.hours, minutes: e.minutes, sign: e.sign, active: e.active }); selectedIndex = i; resetSumBuffer(); saveEntries(); renderSum(); scrollSelectedIntoView(); }
+    function deleteSumEntry(index) { if (entries.length === 1) { entries[0] = { id: entries[0].id, hours: 0, minutes: 0, sign: 'plus', active: true }; selectedIndex = 0; sumField = 'minutes'; } else { entries.splice(index, 1); if (selectedIndex >= entries.length) selectedIndex = entries.length - 1; if (selectedIndex > index) selectedIndex -= 1; } resetSumBuffer(); saveEntries(); renderSum(); }
+    function toggleSumSign() { const e = ensureSelection(); e.sign = e.sign === 'plus' ? 'minus' : 'plus'; resetSumBuffer(); saveEntries(); renderSum(); }
+    function toggleSumActive() { const e = ensureSelection(); e.active = !e.active; resetSumBuffer(); saveEntries(); renderSum(); }
+    function moveSumEntry(delta) { ensureSelection(); const next = selectedIndex + delta; if (next < 0 || next >= entries.length) return; [entries[selectedIndex], entries[next]] = [entries[next], entries[selectedIndex]]; selectedIndex = next; resetSumBuffer(); saveEntries(); renderSum(); scrollSelectedIntoView(); }
+    function clearEntries() { if (!confirm('시간 목록을 전체 초기화하시겠습니까?')) return; entries = defaultEntries(); selectedIndex = 0; sumField = 'minutes'; resetSumBuffer(); saveEntries(); renderSum(); }
+    function scrollSelectedIntoView() { requestAnimationFrame(() => { const row = document.querySelectorAll('.entry-row')[selectedIndex]; if (row) row.scrollIntoView({ block: 'nearest' }); }); }
+
+    function renderSum() {
+      ensureSelection();
+      const total = sumTotal();
+      document.getElementById('sumTotalText').textContent = formatDuration(total);
+      document.getElementById('sumTotalSub').textContent = `${total}분 · ${(total / 60).toFixed(2)}시간`;
+      document.getElementById('sumEditHoursBtn').classList.toggle('active', sumField === 'hours');
+      document.getElementById('sumEditMinutesBtn').classList.toggle('active', sumField === 'minutes');
+      const list = document.getElementById('entryList');
+      list.innerHTML = '';
+      entries.forEach((entry, index) => {
+        const row = document.createElement('div');
+        row.className = 'entry-row' + (index === selectedIndex ? ' selected' : '') + (!entry.active ? ' inactive' : '');
+        row.addEventListener('click', event => { if (event.target.closest('button')) return; selectSumEntry(index); });
+        const activeBtn = document.createElement('button');
+        activeBtn.className = 'active-toggle' + (!entry.active ? ' off' : '');
+        activeBtn.textContent = entry.active ? '활성' : '비활성';
+        activeBtn.addEventListener('click', () => { selectedIndex = index; toggleSumActive(); });
+        const signBtn = document.createElement('button');
+        signBtn.className = 'sign-button' + (entry.sign === 'minus' ? ' minus' : '');
+        signBtn.textContent = entry.sign === 'plus' ? '+' : '-';
+        signBtn.addEventListener('click', () => { selectedIndex = index; toggleSumSign(); });
+        const main = document.createElement('div'); main.className = 'entry-main';
+        const parts = document.createElement('div'); parts.className = 'time-parts';
+        const h = document.createElement('button'); h.className = 'time-part' + (index === selectedIndex && sumField === 'hours' ? ' selected-part' : ''); h.textContent = `${entry.hours}시간`; h.addEventListener('click', () => selectSumEntry(index, 'hours'));
+        const m = document.createElement('button'); m.className = 'time-part' + (index === selectedIndex && sumField === 'minutes' ? ' selected-part' : ''); m.textContent = `${pad2(entry.minutes)}분`; m.addEventListener('click', () => selectSumEntry(index, 'minutes'));
+        parts.append(h, m);
+        main.append(parts);
+        const del = document.createElement('button'); del.className = 'delete-button'; del.textContent = '×'; del.setAttribute('aria-label', '목록 삭제'); del.addEventListener('click', () => deleteSumEntry(index));
+        row.append(activeBtn, signBtn, main, del); list.appendChild(row);
+      });
+      const selected = ensureSelection();
+      document.getElementById('sumSelectedValue').textContent = `${formatEntry(selected)} · ${sumField === 'hours' ? '시간 편집 중' : '분 편집 중'}`;
+      document.getElementById('sumSelectedIndexLabel').textContent = `${selectedIndex + 1} / ${entries.length}`;
+    }
+
+    const diffFields = ['startH', 'startM', 'endH', 'endM'];
+    const diffLabels = { startH: '시작 시', startM: '시작 분', endH: '종료 시', endM: '종료 분' };
+    function diffLimit(field, value) { return field.endsWith('M') ? clamp(value, 0, 59) : clamp(value, 0, 23); }
+    function setDiffField(field) { diff.field = field; resetDiffBuffer(); saveDiff(); renderDiff(); }
+    function pressDiffDigit(value) { if (diffBufferField !== diff.field) resetDiffBuffer(); diffBufferField = diff.field; diffBuffer = value === '00' ? (diffBuffer ? diffBuffer + '00' : '0') : diffBuffer + value; diffBuffer = diffBuffer.replace(/^0+(?=\d)/, ''); let next = diffLimit(diff.field, Number(diffBuffer) || 0); if (next !== Number(diffBuffer)) diffBuffer = String(next); diff[diff.field] = next; saveDiff(); renderDiff(); }
+    function diffBackspace() { if (diffBufferField !== diff.field || !diffBuffer) { diffBuffer = String(diff[diff.field] || ''); diffBufferField = diff.field; } diffBuffer = diffBuffer.slice(0, -1); diff[diff.field] = diffLimit(diff.field, diffBuffer); saveDiff(); renderDiff(); }
+    function adjustDiff(delta) { diff[diff.field] = diffLimit(diff.field, (Number(diff[diff.field]) || 0) + delta); resetDiffBuffer(); saveDiff(); renderDiff(); }
+    function zeroDiff() { diff[diff.field] = 0; resetDiffBuffer(); saveDiff(); renderDiff(); }
+    function moveDiffField(delta) { const i = diffFields.indexOf(diff.field); setDiffField(diffFields[clamp(i + delta, 0, diffFields.length - 1)]); }
+    function setDiffNow(target) { const n = new Date(); diff[target + 'H'] = n.getHours(); diff[target + 'M'] = n.getMinutes(); resetDiffBuffer(); saveDiff(); renderDiff(); }
+    function swapDiff() { [diff.startH, diff.endH] = [diff.endH, diff.startH]; [diff.startM, diff.endM] = [diff.endM, diff.startM]; resetDiffBuffer(); saveDiff(); renderDiff(); }
+    function clearDiff() { diff = { startH: 0, startM: 0, endH: 0, endM: 0, field: 'startH', autoNext: true }; resetDiffBuffer(); saveDiff(); renderDiff(); }
+    function calculateDiff() { const start = diff.startH * 60 + diff.startM; const end = diff.endH * 60 + diff.endM; let result = end - start; let usedNext = false; if (diff.autoNext && result < 0) { result += 1440; usedNext = true; } return { result, usedNext, start, end }; }
+    function renderDiff() {
+      diff.field = diffFields.includes(diff.field) ? diff.field : 'startH';
+      const r = calculateDiff();
+      document.getElementById('diffResultText').textContent = formatDuration(r.result);
+      document.getElementById('diffResultSub').textContent = `${pad2(diff.startH)}:${pad2(diff.startM)} → ${pad2(diff.endH)}:${pad2(diff.endM)}${r.usedNext ? ' · 다음날 종료로 계산됩니다.' : ''}`;
+      document.getElementById('diffStartH').textContent = `${diff.startH}시`; document.getElementById('diffStartM').textContent = `${pad2(diff.startM)}분`;
+      document.getElementById('diffEndH').textContent = `${diff.endH}시`; document.getElementById('diffEndM').textContent = `${pad2(diff.endM)}분`;
+      document.getElementById('diffAutoNextBtn').classList.toggle('active', diff.autoNext);
+      document.getElementById('diffSelectedValue').textContent = diffLabels[diff.field];
+      document.querySelectorAll('[data-diff-field]').forEach(b => b.classList.toggle('active', b.dataset.diffField === diff.field));
+      document.querySelectorAll('#panel-diff .field-pill').forEach(b => b.classList.toggle('selected-part', b.dataset.diffField === diff.field));
+    }
+
+    const clockFields = ['baseH', 'baseM', 'durH', 'durM'];
+    const clockLabels = { baseH: '기준 시', baseM: '기준 분', durH: '시간', durM: '분' };
+    function clockLimit(field, value) { if (field.endsWith('M')) return clamp(value, 0, 59); if (field === 'baseH') return clamp(value, 0, 23); return clamp(value, 0, 9999); }
+    function setClockField(field) { clock.field = field; resetClockBuffer(); saveClock(); renderClock(); }
+    function pressClockDigit(value) { if (clockBufferField !== clock.field) resetClockBuffer(); clockBufferField = clock.field; clockBuffer = value === '00' ? (clockBuffer ? clockBuffer + '00' : '0') : clockBuffer + value; clockBuffer = clockBuffer.replace(/^0+(?=\d)/, ''); let next = clockLimit(clock.field, Number(clockBuffer) || 0); if (next !== Number(clockBuffer)) clockBuffer = String(next); clock[clock.field] = next; saveClock(); renderClock(); }
+    function clockBackspace() { if (clockBufferField !== clock.field || !clockBuffer) { clockBuffer = String(clock[clock.field] || ''); clockBufferField = clock.field; } clockBuffer = clockBuffer.slice(0, -1); clock[clock.field] = clockLimit(clock.field, clockBuffer); saveClock(); renderClock(); }
+    function adjustClock(delta) { clock[clock.field] = clockLimit(clock.field, (Number(clock[clock.field]) || 0) + delta); resetClockBuffer(); saveClock(); renderClock(); }
+    function zeroClock() { clock[clock.field] = 0; resetClockBuffer(); saveClock(); renderClock(); }
+    function moveClockField(delta) { const i = clockFields.indexOf(clock.field); setClockField(clockFields[clamp(i + delta, 0, clockFields.length - 1)]); }
+    function setClockNow() { const n = new Date(); clock.baseH = n.getHours(); clock.baseM = n.getMinutes(); resetClockBuffer(); saveClock(); renderClock(); }
+    function clearClock() { clock = { baseH: 0, baseM: 0, durH: 0, durM: 0, sign: 'plus', field: 'baseH' }; resetClockBuffer(); saveClock(); renderClock(); }
+    function toggleClockSign() { clock.sign = clock.sign === 'plus' ? 'minus' : 'plus'; saveClock(); renderClock(); }
+    function calculateClock() { const base = clock.baseH * 60 + clock.baseM; const dur = clock.durH * 60 + clock.durM; const raw = clock.sign === 'plus' ? base + dur : base - dur; const dayOffset = Math.floor(raw / 1440); const normalized = ((raw % 1440) + 1440) % 1440; return { raw, dayOffset, hour: Math.floor(normalized / 60), minute: normalized % 60, dur }; }
+    function renderClock() {
+      clock.field = clockFields.includes(clock.field) ? clock.field : 'baseH';
+      const r = calculateClock();
+      const dayText = r.dayOffset === 0 ? '' : r.dayOffset > 0 ? ` (+${r.dayOffset}일)` : ` (${r.dayOffset}일)`;
+      document.getElementById('clockResultText').textContent = `${pad2(r.hour)}:${pad2(r.minute)}${dayText}`;
+      document.getElementById('clockResultSub').textContent = `${pad2(clock.baseH)}:${pad2(clock.baseM)} ${clock.sign === 'plus' ? '+' : '-'} ${formatParts(clock.durH, clock.durM)} = ${pad2(r.hour)}:${pad2(r.minute)}${dayText}`;
+      document.getElementById('clockBaseH').textContent = `${clock.baseH}시`; document.getElementById('clockBaseM').textContent = `${pad2(clock.baseM)}분`;
+      document.getElementById('clockDurH').textContent = `${clock.durH}시간`; document.getElementById('clockDurM').textContent = `${pad2(clock.durM)}분`;
+      document.getElementById('clockPlusBtn').classList.toggle('active', clock.sign === 'plus');
+      document.getElementById('clockMinusBtn').classList.toggle('active', clock.sign === 'minus');
+      document.getElementById('clockSelectedValue').textContent = clockLabels[clock.field];
+      document.querySelectorAll('[data-clock-field]').forEach(b => b.classList.toggle('active', b.dataset.clockField === clock.field));
+      document.querySelectorAll('#panel-clock .field-pill').forEach(b => b.classList.toggle('selected-part', b.dataset.clockField === clock.field));
+    }
+
+    function addRecord(type, title, result, summary) { const records = loadRecords(); records.unshift({ id: uid(), type, title, result, summary, createdAt: new Date().toLocaleString('ko-KR') }); saveRecords(records); renderRecords(); alert('저장되었습니다.'); }
+    function saveSumRecord() { const total = sumTotal(); const summary = entries.filter(e => e.hours > 0 || e.minutes > 0).map(formatEntry).join(' / ') || '+ 0분'; addRecord('합산', formatDuration(total), `${total}분 · ${(total / 60).toFixed(2)}시간`, summary); }
+    function saveDiffRecord() { const r = calculateDiff(); const summary = `${pad2(diff.startH)}:${pad2(diff.startM)} → ${pad2(diff.endH)}:${pad2(diff.endM)}${r.usedNext ? ' · 다음날 종료' : ''}`; addRecord('차이', formatDuration(r.result), `${r.result}분 · ${(r.result / 60).toFixed(2)}시간`, summary); }
+    function saveClockRecord() { const r = calculateClock(); const dayText = r.dayOffset === 0 ? '' : r.dayOffset > 0 ? ` (+${r.dayOffset}일)` : ` (${r.dayOffset}일)`; const result = `${pad2(r.hour)}:${pad2(r.minute)}${dayText}`; const summary = `${pad2(clock.baseH)}:${pad2(clock.baseM)} ${clock.sign === 'plus' ? '+' : '-'} ${formatParts(clock.durH, clock.durM)}`; addRecord('시각', result, summary, summary); }
+    function renderRecords() {
+      const records = loadRecords();
+      selectedRecordIds = new Set([...selectedRecordIds].filter(id => records.some(r => r.id === id)));
+      document.getElementById('recordCountText').textContent = `${records.length}개`;
+      document.getElementById('recordSubText').textContent = selectedRecordIds.size ? `${selectedRecordIds.size}개 기록이 선택되었습니다.` : '저장된 계산 기록을 확인하고 필요한 항목만 삭제할 수 있습니다.';
+      const list = document.getElementById('recordList'); list.innerHTML = '';
+      if (!records.length) { const empty = document.createElement('div'); empty.className = 'entry-note'; empty.textContent = '저장된 기록이 없습니다.'; list.appendChild(empty); return; }
+      records.forEach(record => {
+        const item = document.createElement('div'); item.className = 'record-item';
+        const select = document.createElement('button'); select.className = 'record-select' + (selectedRecordIds.has(record.id) ? ' active' : ''); select.textContent = selectedRecordIds.has(record.id) ? '선택됨' : '선택'; select.addEventListener('click', () => { selectedRecordIds.has(record.id) ? selectedRecordIds.delete(record.id) : selectedRecordIds.add(record.id); renderRecords(); });
+        const main = document.createElement('div'); main.className = 'record-main';
+        const strong = document.createElement('strong'); strong.textContent = `[${record.type}] ${record.title}`;
+        const meta = document.createElement('span'); meta.textContent = `${record.createdAt} · ${record.result} · ${record.summary}`;
+        main.append(strong, meta);
+        const del = document.createElement('button'); del.className = 'delete-button'; del.textContent = '×'; del.addEventListener('click', () => deleteRecord(record.id));
+        item.append(select, main, del); list.appendChild(item);
+      });
+    }
+    function deleteRecord(id) { const records = loadRecords().filter(r => r.id !== id); selectedRecordIds.delete(id); saveRecords(records); renderRecords(); }
+    function deleteSelectedRecords() { if (!selectedRecordIds.size) { alert('선택된 기록이 없습니다.'); return; } if (!confirm(`${selectedRecordIds.size}개 기록을 삭제하시겠습니까?`)) return; const records = loadRecords().filter(r => !selectedRecordIds.has(r.id)); selectedRecordIds.clear(); saveRecords(records); renderRecords(); }
+    function selectAllRecords() { selectedRecordIds = new Set(loadRecords().map(r => r.id)); renderRecords(); }
+    function clearRecordSelection() { selectedRecordIds.clear(); renderRecords(); }
+    function clearRecords() { if (!confirm('저장된 기록을 전체 삭제하시겠습니까?')) return; selectedRecordIds.clear(); localStorage.removeItem(KEYS.records); renderRecords(); }
+
+    function resetAll() {
+      if (!confirm('시간계산기 데이터를 전체 초기화하시겠습니까?')) return;
+      Object.values(KEYS).forEach(key => localStorage.removeItem(key));
+      entries = defaultEntries(); selectedIndex = 0; sumField = 'minutes'; diff = { startH: 0, startM: 0, endH: 0, endM: 0, field: 'startH', autoNext: true }; clock = { baseH: 0, baseM: 0, durH: 0, durM: 0, sign: 'plus', field: 'baseH' }; selectedRecordIds.clear(); resetSumBuffer(); resetDiffBuffer(); resetClockBuffer(); renderAll();
+    }
+
+    function switchTab(tab) { activeTab = tab; document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.getElementById(`panel-${tab}`).classList.add('active'); document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab)); if (tab === 'records') renderRecords(); }
+    function renderAll() { renderSum(); renderDiff(); renderClock(); renderRecords(); }
+
+    function bindEvents() {
+      document.querySelectorAll('[data-sum-digit]').forEach(b => b.addEventListener('click', () => pressSumDigit(b.dataset.sumDigit)));
+      document.querySelectorAll('[data-sum-adjust-field]').forEach(b => b.addEventListener('click', () => adjustSum(b.dataset.sumAdjustField, Number(b.dataset.sumAdjust))));
+      document.querySelectorAll('[data-sum-zero]').forEach(b => b.addEventListener('click', () => zeroSum(b.dataset.sumZero)));
+      document.querySelectorAll('[data-sum-field]').forEach(b => b.addEventListener('click', () => setSumField(b.dataset.sumField)));
+      document.getElementById('sumBackspaceBtn').addEventListener('click', sumBackspace);
+      document.getElementById('sumPrevBtn').addEventListener('click', () => moveSumSelection(-1));
+      document.getElementById('sumNextBtn').addEventListener('click', () => moveSumSelection(1));
+      document.getElementById('sumAddBtn').addEventListener('click', addSumEntry);
+      document.getElementById('sumCopyBtn').addEventListener('click', copySumEntry);
+      document.getElementById('sumToggleSignBtn').addEventListener('click', toggleSumSign);
+      document.getElementById('sumToggleActiveBtn').addEventListener('click', toggleSumActive);
+      document.getElementById('sumMoveUpBtn').addEventListener('click', () => moveSumEntry(-1));
+      document.getElementById('sumMoveDownBtn').addEventListener('click', () => moveSumEntry(1));
+      document.getElementById('clearEntriesBtn').addEventListener('click', clearEntries);
+      document.getElementById('saveSumRecordBtn').addEventListener('click', saveSumRecord);
+
+      document.querySelectorAll('[data-diff-field]').forEach(b => b.addEventListener('click', () => setDiffField(b.dataset.diffField)));
+      document.querySelectorAll('[data-diff-digit]').forEach(b => b.addEventListener('click', () => pressDiffDigit(b.dataset.diffDigit)));
+      document.querySelectorAll('[data-diff-adjust]').forEach(b => b.addEventListener('click', () => adjustDiff(Number(b.dataset.diffAdjust))));
+      document.querySelectorAll('[data-diff-quick]').forEach(b => b.addEventListener('click', () => setDiffNow(b.dataset.diffQuick)));
+      document.getElementById('diffBackspaceBtn').addEventListener('click', diffBackspace);
+      document.getElementById('diffPrevFieldBtn').addEventListener('click', () => moveDiffField(-1));
+      document.getElementById('diffNextFieldBtn').addEventListener('click', () => moveDiffField(1));
+      document.getElementById('diffZeroBtn').addEventListener('click', zeroDiff);
+      document.getElementById('diffToggleNextBtn').addEventListener('click', () => { diff.autoNext = !diff.autoNext; saveDiff(); renderDiff(); });
+      document.getElementById('diffAutoNextBtn').addEventListener('click', () => { diff.autoNext = !diff.autoNext; saveDiff(); renderDiff(); });
+      document.getElementById('diffSwapBtn').addEventListener('click', swapDiff);
+      document.getElementById('diffNowBtn').addEventListener('click', () => setDiffNow('start'));
+      document.getElementById('diffClearBtn').addEventListener('click', clearDiff);
+      document.getElementById('diffSaveBtn').addEventListener('click', saveDiffRecord);
+      document.getElementById('saveDiffRecordBtn').addEventListener('click', saveDiffRecord);
+
+      document.querySelectorAll('[data-clock-field]').forEach(b => b.addEventListener('click', () => setClockField(b.dataset.clockField)));
+      document.querySelectorAll('[data-clock-digit]').forEach(b => b.addEventListener('click', () => pressClockDigit(b.dataset.clockDigit)));
+      document.querySelectorAll('[data-clock-adjust]').forEach(b => b.addEventListener('click', () => adjustClock(Number(b.dataset.clockAdjust))));
+      document.querySelectorAll('[data-clock-quick]').forEach(b => b.addEventListener('click', setClockNow));
+      document.getElementById('clockBackspaceBtn').addEventListener('click', clockBackspace);
+      document.getElementById('clockPrevFieldBtn').addEventListener('click', () => moveClockField(-1));
+      document.getElementById('clockNextFieldBtn').addEventListener('click', () => moveClockField(1));
+      document.getElementById('clockZeroBtn').addEventListener('click', zeroClock);
+      document.getElementById('clockClearBtn').addEventListener('click', clearClock);
+      document.getElementById('clockToggleSignBtn').addEventListener('click', toggleClockSign);
+      document.getElementById('clockPlusBtn').addEventListener('click', () => { clock.sign = 'plus'; saveClock(); renderClock(); });
+      document.getElementById('clockMinusBtn').addEventListener('click', () => { clock.sign = 'minus'; saveClock(); renderClock(); });
+      document.getElementById('clockSetMinusBtn').addEventListener('click', () => { clock.sign = 'minus'; saveClock(); renderClock(); });
+      document.getElementById('clockNowBtn').addEventListener('click', setClockNow);
+      document.getElementById('clockSaveBtn').addEventListener('click', saveClockRecord);
+      document.getElementById('saveClockRecordBtn').addEventListener('click', saveClockRecord);
+
+      document.getElementById('deleteSelectedRecordsBtn').addEventListener('click', deleteSelectedRecords);
+      document.getElementById('selectAllRecordsBtn').addEventListener('click', selectAllRecords);
+      document.getElementById('clearSelectedRecordsBtn').addEventListener('click', clearRecordSelection);
+      document.getElementById('clearRecordsBtn').addEventListener('click', clearRecords);
+      document.getElementById('resetAllBtn').addEventListener('click', resetAll);
+      document.querySelectorAll('.tabbar button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+      window.addEventListener('keydown', event => {
+        if (event.key >= '0' && event.key <= '9') { event.preventDefault(); if (activeTab === 'sum') pressSumDigit(event.key); else if (activeTab === 'diff') pressDiffDigit(event.key); else if (activeTab === 'clock') pressClockDigit(event.key); }
+        else if (event.key === 'Backspace') { event.preventDefault(); if (activeTab === 'sum') sumBackspace(); else if (activeTab === 'diff') diffBackspace(); else if (activeTab === 'clock') clockBackspace(); }
+        else if (event.key === 'Enter') { event.preventDefault(); if (activeTab === 'sum') addSumEntry(); }
+        else if (event.key === 'ArrowUp') { event.preventDefault(); if (activeTab === 'sum') moveSumSelection(-1); else if (activeTab === 'diff') moveDiffField(-1); else if (activeTab === 'clock') moveClockField(-1); }
+        else if (event.key === 'ArrowDown') { event.preventDefault(); if (activeTab === 'sum') moveSumSelection(1); else if (activeTab === 'diff') moveDiffField(1); else if (activeTab === 'clock') moveClockField(1); }
+        else if (event.key === '+' || event.key === '-') { event.preventDefault(); if (activeTab === 'sum') toggleSumSign(); else if (activeTab === 'clock') toggleClockSign(); }
+        else if (event.key === ' ') { event.preventDefault(); if (activeTab === 'sum') toggleSumActive(); }
+      });
+    }
+
+    function init() { bindEvents(); renderAll(); if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {})); }
+    init();
+  </script>
+</body>
+</html>
