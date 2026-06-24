@@ -52,9 +52,11 @@
     button:active { transform: translateY(1px); filter: brightness(0.98); }
 
     .app {
-      min-height: 100%;
+      height: 100dvh;
+      min-height: 0;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
       padding: env(safe-area-inset-top) 14px calc(var(--tabbar-height) + env(safe-area-inset-bottom)) 14px;
     }
     .topbar {
@@ -65,6 +67,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      flex: 0 0 auto;
     }
     .app-title { font-size: 24px; font-weight: 850; letter-spacing: -0.04em; }
     .badge {
@@ -81,16 +84,19 @@
       width: min(1120px, 100%);
       margin: 0 auto;
       display: none;
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0;
+      overflow: hidden;
     }
     .panel.active { display: block; }
 
     .layout {
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 10px;
-      min-height: calc(100vh - 110px - var(--tabbar-height));
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
     }
     .card {
       background: var(--card);
@@ -133,10 +139,14 @@
 
     .workspace {
       display: grid;
-      grid-template-rows: minmax(170px, 1fr) auto;
+      grid-template-rows: minmax(0, 1fr) auto;
       gap: 10px;
       min-height: 0;
+      height: 100%;
+      overflow: hidden;
     }
+    .workspace.keypad-hidden { grid-template-rows: minmax(0, 1fr); }
+    .workspace.keypad-hidden .keypad-card { display: none; }
     .list-card, .form-card {
       min-height: 0;
       display: flex;
@@ -152,6 +162,7 @@
       border-bottom: 1px solid var(--border);
     }
     .card-head h2 { margin: 0; font-size: 16px; letter-spacing: -0.03em; }
+    .head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 
     .entry-list, .record-list {
       overflow: auto;
@@ -335,8 +346,8 @@
       .record-item { grid-template-columns: 60px 1fr 34px; }
     }
     @media (min-width: 900px) and (orientation: landscape) {
-      .layout { min-height: calc(100vh - 105px - var(--tabbar-height)); }
       .workspace { grid-template-columns: minmax(0, 1fr) var(--keypad-width); grid-template-rows: minmax(0, 1fr); align-items: end; }
+      .workspace.keypad-hidden { grid-template-columns: minmax(0, 1fr); }
       .list-card, .form-card { height: 100%; }
       .keypad-card { width: var(--keypad-width); }
     }
@@ -373,15 +384,18 @@
           </div>
           <button id="saveSumRecordBtn" class="primary-button">결과 저장</button>
         </section>
-        <div class="workspace">
+        <div id="sumWorkspace" class="workspace">
           <section class="list-card card">
             <div class="card-head">
               <h2>시간 목록</h2>
-              <button id="clearEntriesBtn" class="small-button">전체 초기화</button>
+              <div class="head-actions">
+                <button id="toggleSumKeypadBtn" class="small-button">입력기 숨기기</button>
+                <button id="clearEntriesBtn" class="small-button">전체 초기화</button>
+              </div>
             </div>
             <div id="entryList" class="entry-list"></div>
           </section>
-          <section class="keypad-card card" aria-label="합산 입력패드">
+          <section id="sumKeypadCard" class="keypad-card card" aria-label="합산 입력패드">
             <div class="selected-line">
               <div>
                 <div class="selected-title">선택한 목록</div>
@@ -399,7 +413,7 @@
                   <button data-sum-digit="7">7</button><button data-sum-digit="8">8</button><button data-sum-digit="9">9</button>
                   <button data-sum-digit="4">4</button><button data-sum-digit="5">5</button><button data-sum-digit="6">6</button>
                   <button data-sum-digit="1">1</button><button data-sum-digit="2">2</button><button data-sum-digit="3">3</button>
-                  <button data-sum-digit="00">00</button><button data-sum-digit="0">0</button><button id="sumBackspaceBtn">←</button>
+                  <button id="sumBackspaceBtn">←</button><button data-sum-digit="0">0</button><button data-sum-digit="00">00</button>
                 </div>
                 <div class="adjust-grid">
                   <button data-sum-adjust-field="hours" data-sum-adjust="-1">시 -1</button>
@@ -486,7 +500,7 @@
                   <button data-diff-digit="7">7</button><button data-diff-digit="8">8</button><button data-diff-digit="9">9</button>
                   <button data-diff-digit="4">4</button><button data-diff-digit="5">5</button><button data-diff-digit="6">6</button>
                   <button data-diff-digit="1">1</button><button data-diff-digit="2">2</button><button data-diff-digit="3">3</button>
-                  <button data-diff-digit="00">00</button><button data-diff-digit="0">0</button><button id="diffBackspaceBtn">←</button>
+                  <button id="diffBackspaceBtn">←</button><button data-diff-digit="0">0</button><button data-diff-digit="00">00</button>
                 </div>
                 <div class="adjust-grid">
                   <button data-diff-adjust="-1">-1</button><button data-diff-adjust="1">+1</button><button id="diffZeroBtn">0</button>
@@ -566,7 +580,7 @@
                   <button data-clock-digit="7">7</button><button data-clock-digit="8">8</button><button data-clock-digit="9">9</button>
                   <button data-clock-digit="4">4</button><button data-clock-digit="5">5</button><button data-clock-digit="6">6</button>
                   <button data-clock-digit="1">1</button><button data-clock-digit="2">2</button><button data-clock-digit="3">3</button>
-                  <button data-clock-digit="00">00</button><button data-clock-digit="0">0</button><button id="clockBackspaceBtn">←</button>
+                  <button id="clockBackspaceBtn">←</button><button data-clock-digit="0">0</button><button data-clock-digit="00">00</button>
                 </div>
                 <div class="adjust-grid">
                   <button data-clock-adjust="-1">-1</button><button data-clock-adjust="1">+1</button><button id="clockZeroBtn">0</button>
@@ -618,6 +632,7 @@
         <h2 style="margin:0 0 10px;letter-spacing:-0.04em;">설정</h2>
         <div class="field-group">
           <div class="field-title">입력 규칙</div>
+          <div class="entry-note">합산 화면의 시간 목록은 독립적으로 스크롤되며, 입력패드는 고정 위치에 표시됩니다.</div>
           <div class="entry-note">입력패드는 화면 방향과 관계없이 고정 크기로 표시됩니다.</div>
           <div class="entry-note">합산의 시간 값은 일 단위로 변환되지 않습니다. 50시간은 50시간으로 표시됩니다.</div>
           <div class="entry-note">분 값은 최대 59분으로 제한됩니다. 9999를 입력해도 59분으로 고정됩니다.</div>
@@ -641,6 +656,7 @@
       entries: 'timecalc.entries.v3',
       selected: 'timecalc.selected.v3',
       sumField: 'timecalc.sumField.v3',
+      sumKeypadVisible: 'timecalc.sumKeypadVisible.v4',
       records: 'timecalc.records.v3',
       diff: 'timecalc.diff.v3',
       clock: 'timecalc.clock.v3'
@@ -651,6 +667,7 @@
     let entries = loadEntries();
     let selectedIndex = loadNumber(KEYS.selected, 0);
     let sumField = localStorage.getItem(KEYS.sumField) === 'hours' ? 'hours' : 'minutes';
+    let sumKeypadVisible = localStorage.getItem(KEYS.sumKeypadVisible) !== 'false';
     let sumBuffer = '';
     let sumBufferField = sumField;
     let diff = loadJson(KEYS.diff, { startH: 0, startM: 0, endH: 0, endM: 0, field: 'startH', autoNext: true });
@@ -729,6 +746,7 @@
     function deleteSumEntry(index) { if (entries.length === 1) { entries[0] = { id: entries[0].id, hours: 0, minutes: 0, sign: 'plus', active: true }; selectedIndex = 0; sumField = 'minutes'; } else { entries.splice(index, 1); if (selectedIndex >= entries.length) selectedIndex = entries.length - 1; if (selectedIndex > index) selectedIndex -= 1; } resetSumBuffer(); saveEntries(); renderSum(); }
     function toggleSumSign() { const e = ensureSelection(); e.sign = e.sign === 'plus' ? 'minus' : 'plus'; resetSumBuffer(); saveEntries(); renderSum(); }
     function toggleSumActive() { const e = ensureSelection(); e.active = !e.active; resetSumBuffer(); saveEntries(); renderSum(); }
+    function toggleSumKeypad() { sumKeypadVisible = !sumKeypadVisible; localStorage.setItem(KEYS.sumKeypadVisible, String(sumKeypadVisible)); renderSum(); }
     function moveSumEntry(delta) { ensureSelection(); const next = selectedIndex + delta; if (next < 0 || next >= entries.length) return; [entries[selectedIndex], entries[next]] = [entries[next], entries[selectedIndex]]; selectedIndex = next; resetSumBuffer(); saveEntries(); renderSum(); scrollSelectedIntoView(); }
     function clearEntries() { if (!confirm('시간 목록을 전체 초기화하시겠습니까?')) return; entries = defaultEntries(); selectedIndex = 0; sumField = 'minutes'; resetSumBuffer(); saveEntries(); renderSum(); }
     function scrollSelectedIntoView() { requestAnimationFrame(() => { const row = document.querySelectorAll('.entry-row')[selectedIndex]; if (row) row.scrollIntoView({ block: 'nearest' }); }); }
@@ -740,6 +758,9 @@
       document.getElementById('sumTotalSub').textContent = `${total}분 · ${(total / 60).toFixed(2)}시간`;
       document.getElementById('sumEditHoursBtn').classList.toggle('active', sumField === 'hours');
       document.getElementById('sumEditMinutesBtn').classList.toggle('active', sumField === 'minutes');
+      document.getElementById('sumWorkspace').classList.toggle('keypad-hidden', !sumKeypadVisible);
+      document.getElementById('toggleSumKeypadBtn').textContent = sumKeypadVisible ? '입력기 숨기기' : '입력기 표시';
+      document.getElementById('toggleSumKeypadBtn').setAttribute('aria-pressed', String(sumKeypadVisible));
       const list = document.getElementById('entryList');
       list.innerHTML = '';
       entries.forEach((entry, index) => {
@@ -853,7 +874,7 @@
     function resetAll() {
       if (!confirm('시간계산기 데이터를 전체 초기화하시겠습니까?')) return;
       Object.values(KEYS).forEach(key => localStorage.removeItem(key));
-      entries = defaultEntries(); selectedIndex = 0; sumField = 'minutes'; diff = { startH: 0, startM: 0, endH: 0, endM: 0, field: 'startH', autoNext: true }; clock = { baseH: 0, baseM: 0, durH: 0, durM: 0, sign: 'plus', field: 'baseH' }; selectedRecordIds.clear(); resetSumBuffer(); resetDiffBuffer(); resetClockBuffer(); renderAll();
+      entries = defaultEntries(); selectedIndex = 0; sumField = 'minutes'; sumKeypadVisible = true; diff = { startH: 0, startM: 0, endH: 0, endM: 0, field: 'startH', autoNext: true }; clock = { baseH: 0, baseM: 0, durH: 0, durM: 0, sign: 'plus', field: 'baseH' }; selectedRecordIds.clear(); resetSumBuffer(); resetDiffBuffer(); resetClockBuffer(); renderAll();
     }
 
     function switchTab(tab) { activeTab = tab; document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.getElementById(`panel-${tab}`).classList.add('active'); document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab)); if (tab === 'records') renderRecords(); }
@@ -874,6 +895,7 @@
       document.getElementById('sumMoveUpBtn').addEventListener('click', () => moveSumEntry(-1));
       document.getElementById('sumMoveDownBtn').addEventListener('click', () => moveSumEntry(1));
       document.getElementById('clearEntriesBtn').addEventListener('click', clearEntries);
+      document.getElementById('toggleSumKeypadBtn').addEventListener('click', toggleSumKeypad);
       document.getElementById('saveSumRecordBtn').addEventListener('click', saveSumRecord);
 
       document.querySelectorAll('[data-diff-field]').forEach(b => b.addEventListener('click', () => setDiffField(b.dataset.diffField)));
